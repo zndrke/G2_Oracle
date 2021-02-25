@@ -1,0 +1,95 @@
+아래 쿼리를 내부 기준에 맞게 튜닝하세요.
+
+1. Q_SelBookList
+
+SELECT	B.BookId
+,	M.BookName
+,	B.InstId
+,	B.BookStatus
+,	M.BundleId
+,	D.Name
+,	B.Owner
+, 	B.DealType
+,	B.MarketGrp
+,	M.PublicSect
+,	B.TeamId
+,	M.BookCd
+FROM	G2_Book B
+,	G2_BookManage M
+,	G2_Bundle D
+WHERE	B.RevId = 0
+AND	M.BookId = B.BookId
+AND	M.RevId = 0
+AND	M.BundleId = D.BundleId(+)
+AND	(:iInstId IS NULL OR (:iInstId IS NOT NULL AND B.InstId = :iInstId))
+AND	(:iBookId IS NULL OR (:iBookId IS NOT NULL AND B.BookId = :iBookId))
+AND	(:nExpiryDate IS NULL OR (:nExpiryDate IS NOT NULL AND B.ExpiryDate = :nExpiryDate))
+
+
+
+2. Q_SelIntReportData100Trd
+
+SELECT	Book.BookId
+,	Book.InstId
+,	Bmg.BookCd
+,	CASE WHEN Book.BookType = 'CRD_FRN' THEN 'CLN'
+	     WHEN Book.BookType = 'SDS_DLS' THEN 'DLS'
+	     WHEN Book.BookType = 'CRD_SWP' THEN
+		CASE WHEN Prod.PayoffPattern = 'CDS' THEN 'CDS'
+		     WHEN Prod.PayoffPattern IN ('TRT', 'HTR', 'BTR') THEN 'TRS'
+		     WHEN Prod.PayoffPattern = 'GNR' THEN NVL(PTMap.RepName, 'TRS')
+		END
+	ELSE '기타'
+	END RepName
+,	Book.BookCcy
+,	DECODE(Book.BookCcy, Book.Ccy, Pos.Notional, Pos.SecondNotional) NotionBal
+,	NVL(DECODE(:sFxRateSect, 'TD', TFxRate.LocalFxRate, FxRate.LocalFxRate), 1) FxRate
+,	CASE WHEN :sFxRateSect = 'TD' THEN DECODE(Book.BookCcy, Book.Ccy, Pos.Notional, Pos.SecondNotional) * NVL(TFxRate.LocalFxRate, 1)
+	ELSE DECODE(Book.BookCcy, Book.Ccy, Pos.Notional, Pos.SecondNotional) * NVL(FxRate.LocalFxRate, 1)
+	END LocalNotionBal
+FROM	G2_Book Book
+,	G2_BookManage Bmg
+,	Product Prod
+,	G2_CounterParty CntrPty
+,	G2_DailyPosition DPos
+,	G2_Position Pos
+,	G2_DailyLocalFxRate FxRate
+,	G2_DailyLocalFxRate TFxRate
+,	ProductType ProdType
+,	G2_BookType BookType
+,	G2_Team Team
+,	G2_Team OTeam
+,	G2_ReportCodeMap PTMap
+WHERE	Book.BookId = Bmg.BookId
+AND	Book.RevId = 0
+AND	Bmg.RevId = 0
+AND	Book.BookStatus IN ('B', 'C')
+AND	Book.DealSect = 'E'
+AND	(Book.UnderAssetGrp = 'CR' OR Book.BookType LIKE '%CRD%')
+AND	Book.InstId = Prod.InstId
+AND	Prod.RevId = 0
+AND	Book.CntrPtyCd = CntrPty.CntrPtyCd
+AND	CntrPty.RevId = 0
+AND	DPos.RecordDate = :nBaseDate
+AND	DPos.BookId = Book.BookId
+AND	DPos.LocalSect = 'B'
+AND	DPos.BookStatus = 'B'
+AND	DPos.BookId = Pos.BookId
+AND	DPos.LocalSect = Pos.LocalSect
+AND	DPos.PosRevId = Pos.RevId
+AND	FxRate.RecordDate(+) = :nFxRateDate
+AND	FxRate.Ccy(+) = Book.BookCcy
+AND	TFxRate.RecordDate(+) = Book.DealDate
+AND	TFxRate.Ccy(+) = Book.BookCcy
+AND	Book.ProductTypeId = ProdType.ProductTypeId
+AND	ProdType.RevId = 0
+AND	Book.BookType = BookType.BookType
+AND	BookType.RevId = 0
+AND	Book.TeamId = Team.TeamId
+AND	Team.RevId = 0
+AND	Bmg.OpTeamId = OTeam.TeamId
+AND	OTeam.RevId = 0
+AND	PTMap.ReportId(+) = :iReportId
+AND	PTMap.CodeSect(+) = 'PRODTYPE'
+AND	Book.ProductTypeId = PTMap.Code(+)
+AND	F_GetRefScopeYN('BOOK', Book.Owner, :sUserId, NULL, Book.BookId) = 'Y'

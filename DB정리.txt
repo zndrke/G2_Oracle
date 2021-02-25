@@ -1,0 +1,171 @@
+1. OUTER JOIN 이란 
+	- 동일한 값이 없는 행도 반환할 때 사용
+	- 즉 조건에 맞지 않는 데이터도 표시하고 싶을때 사용
+
+	
+	- LEFT OUTER JOIN 에서 기준이 되는 테이블을 드라이빙 테이블이라고 함
+	- 드라이빙 테이블에 따라 성능 차이가 크므로, 적은 데이터를 추출하는 테이블을 잡는 것이 중요
+
+	SELECT *                                    
+  	FROM TABLE1  T1                             
+  	LEFT OUTER JOIN TABLE2  T2               
+  	ON (T1.KEY = T2.KEY)   
+
+2. 기본 함수
+	1) DECODE
+	- CASE WHEN으로 사용 권장
+
+	DECODE( 값 , IF1 , VAL1 , IF2 , VAL2, ...)
+	
+	변환=>
+	CASE 값
+		WHEN IF1 THEN VAL1
+		WHEN IF2 THEN VAL2
+		...
+	ELSE
+	END
+----------------------------------------------------------
+	DECODE( 값 , IF1 , VAL1 , VAL2)
+
+	변환=>
+	CASE 값
+		WHEN IF1 THEN VAL1
+	ELSE
+		VAL2
+	END
+
+	2) NVL
+	- CASE WHEN 과 ISNULL으로 대체하여 사용
+
+	NVL("값", "지정값")		//값이 NULL이면 지정값으로 출력
+
+	변환 =>
+	CASE 
+		WHEN 값 IS NULL THEN 지정값
+		ELSE 값
+	END
+	
+	3) 집계함수 COUNT, SUM, AVG, MAX, MIN
+	- 사용할 때 NULL 고려
+	
+
+3. 키
+	1) 기본키 
+	- 테이블 접근시 사용하는 유일한 인덱스
+	- 여러 컬럼으로 PK구성 시 컬럼 순서 고려
+	
+	2) 인공키
+	- KEY로 구분해야 할 컬럼 개수가 많은 경우 인위적으로 생성한 식별자
+	- 데이터 성격은 같으나 KEY가 되어야 할 컬럼의 성격이 다른 경우에도 인공키 활용
+	- 기본키가 보안을 필요하는 경우에도 사용됨
+
+4. 데이터 타입
+	1) 문자형 데이터
+
+	a. CHAR : 고정길이. 데이터 길이가 일정할 경우 저장 공간 절약. 날짜, 일시, 시각
+	b. VARCHAR2(N) :  가변길이. 데이터 길이가 일정하지 않을 경우 사용. 사용자이름, 기초자산 이름
+
+	2) 숫자형 데이터
+
+	a. NUMBER(N) : 양의 정수로 자릿수 지정. 상품ID, 이자구간 번호 등
+	b. NUMBER : 부동 소수점. 정수 및 소수점 이하 자릿수 지정 가능. 명목 금액, 금리 등
+
+5. ID 채번기준
+	1) 항목별 채번
+	- G2_NUMBERING
+	- 특정 항목에 종속된 ID채번
+	- EX) 상품ID, 거래ID
+
+	2) 항목 및 날짜별 채번
+	- G2_DAYNUMBERING
+	- 날짜별 ID채번 기준이 필요한 테이블
+	- EX) 일자별 작업ID JOBNO
+
+6. 이력관리 기준
+	1) REVISION
+	- 처리 이력 관리를 위한 0이상의 정수형 데이터 컬럼
+	- 일반적으로 PK에 포함되며 데이터 ROW 추가 형태
+	- 관련 컬럼 : REVID
+
+	a. 처음 데이터가 추가되면 중복된 ROW가 REVID 0,1로 2개 추가됨
+	b. MAXREVID는 현재 1
+	c. 데이터가 수정되면 REVID가 2인 ROW가 추가되고, MAXREVID도 2가 됨
+	d. REVID 0인 ROW의 데이터와 MAXREVID가 MAX인 데이터가 REVID 컬럼을 제외하고 일치
+
+	2) APPLIED DATE
+	- 변경한 데이터의 적용일자 관리
+	- 데이터 ROW 추가 형태
+	- REVISION과 함께 관리하기도 하나, APPLIED DATE로만 관리할 경우 반드시 PK여야 함
+	- 관련 컬럼 : AppDate
+	- 적용일자이기 때문에 미래 시점도 가능
+
+	3) TIMESTAMP & WHO
+	- 데이터 처리일시, 처리자 컬럼
+	- 신규 저장 또는 변경 삭제 시 처리 정보 관리
+	- 주로 REVISION, APPIEDDATE와 함께 사용되고, PK가 아닌 일반 컬럼
+	- 사용자가 변경 가능한 데이터 테이블에서 주로 사용
+	- EX) 거래정보 변경이력
+
+	4) DAILY 테이블
+	- 일자별 데이터를 관리하는 테이블 별도 생성
+	- EX) 평가 결과 테이블
+	- 일자별 최종 평가 정보를 관리
+
+7. G2 테이블 구조
+	1) 상품
+	- 상품의 NAME, 상태, 명목 통화와 금액 등 상품과 관련된 테이블
+	- PRODUCTSECT가 I:Instrument, P:Product, T:Template
+
+	a. INSTRUMENT
+	- 상품 스펙의 자유도가 높은 PRODUCT
+	- 새로운 상품을 테스트 하는 용도로 주로 사용됨
+
+	b. TEMPLATE
+	- 자주 사용되는 상품유형을 PRODUCTTYPE 테이블에 저장
+	- EX) 만기형 상품의 경우 REDEMPTION을 설정할 필요가 없으므로 선택불가하도록 함 
+	- PRODUCTTYPE테이블의 TEMPLATEID는 템플릿의 INSTID가 저장됨 (TEMPLATE이 INSTID의 정보로 초기세팅?)
+	- 불필요한 값을 건드릴 필요가 없으므로 빠르게 상품 등록이 가능.	
+
+	c. PRODUCT
+	- PRODUCTTYPE테이블에 있는 TEMPLEATE을 바탕으로 PRODUCT를 생성
+	- 따라서 PRODUCTTYPEID는 PRODUCT만 저장되고, INSTRUMENT와 TEMPLATE는 NULL
+	- TEMLPLATE에 MARKETGROUP과 PRODUCTGROUP이 추가되어 PRODUCT가 생성됨
+
+	2) 거래
+	a. BOOK
+	- 거래와 관련된 정보를 관리하는 테이블. 
+	- FRONT에서 입력 및 정정	
+	- 명목 통화를 나타내는 CCY와 명목 금액을 나타내는 NOTIONAL
+	- 최초 정보 입력이후 변경하지 않음
+	- INSTID를 통해 PRODUCT 테이블과 조인 
+	
+	b. BOOKMANAGER
+	- 거래정보 중 관리목적 정보 저장
+	- BACK에서 정정 가능
+	- 거래의 NAME이 저장됨
+
+	c. TRANSACTION
+	- 거래의 이벤트에 대한 정보 관리
+	- 연관되어 변경되는 정보는 POSITIONHISTORY에서 관리
+	- 명목 금액은 양수 음수 모두 가능
+
+	3) 포지션
+	
+	a. POSITIONHISTORY
+	-  TRANSACTION에 의해 변경되는 포지션 정보 저장
+	- POSITION 테이블을 변경하기 위해, 이전 포지션정보와 이후 포지션 정보 사이의 발생분 관리
+	- NOTIONAL의 값은 TRANSACTION에서 발생한 이벤트의 값
+ 
+	b. POSITION
+	- 거래별 포지션 정보 저장
+	- POSITION의 최초시작일자
+	- BOOK 통화 기준 'B' , BOOKCCY가 LOCALCCY가 아닌 경우에만 'L'
+
+	c. DAILYPOSITION
+	- 포지션 정보의 일별 데이터 저장
+	- RECORDDATE, BOOKID, LOCALSECT가 기본키
+	- 조회하고자 하는 날짜(RECORDDATE)의 POSREVID를 통해 POSITION 테이블의 정보 조회
+
+
+	
+	
